@@ -12,6 +12,7 @@ button,label.btn{background:var(--ac);color:#fff;border:0;border-radius:12px;pad
 input[type=file]{display:none}
 #name{opacity:.7;font-size:14px}#err{color:#d33;font-size:14px}
 #game{width:100%;height:100%;display:none}
+#log{position:fixed;left:0;right:0;bottom:0;max-height:30%;overflow:auto;background:#000c;color:#9f9;font:11px monospace;padding:6px;margin:0;z-index:99999;white-space:pre-wrap}
 </style></head><body>
 <div id="menu"><div class="card">
 <h2>PSP Player</h2>
@@ -21,8 +22,15 @@ input[type=file]{display:none}
 <p id="name"></p><button id="go" style="display:none">Start</button>
 <p id="err"></p></div></div>
 <div id="game"></div>
+<pre id="log">log:
+</pre>
 <script>
 const $=id=>document.getElementById(id);let file;
+const L=m=>{$('log').textContent+=m+'\n';$('log').scrollTop=1e9};
+window.addEventListener('error',e=>L('ERR '+e.message));
+window.addEventListener('unhandledrejection',e=>L('REJ '+(e.reason&&e.reason.message||e.reason)));
+['warn','error'].forEach(k=>{const o=console[k];console[k]=(...a)=>{try{L(k+': '+a.join(' ').slice(0,200))}catch(_){}o.apply(console,a)}});
+L('isolated='+window.crossOriginIsolated);
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('coi-sw.js').then(()=>{
     if(!window.crossOriginIsolated && !sessionStorage.r){sessionStorage.r=1;location.reload()}
@@ -31,15 +39,16 @@ if('serviceWorker' in navigator){
 $('f').onchange=e=>{file=e.target.files[0];if(!file)return;$('name').textContent=file.name;$('go').style.display='inline-block'};
 $('go').onclick=()=>{
   if(!file)return;
+  if(/\.(7z|zip|rar)$/i.test(file.name)){$('err').textContent='Extract the archive first and pick the .iso/.cso/.pbp inside.';return}
   if(!window.crossOriginIsolated){$('err').textContent='Not ready yet. Reload the page once and try again.';return}
   $('menu').style.display='none';$('game').style.display='block';
   window.EJS_player='#game';window.EJS_core='psp';
   window.EJS_gameName=file.name.replace(/\.[^.]+$/,'');
-  window.EJS_gameUrl=URL.createObjectURL(file);
+  window.EJS_gameUrl=URL.createObjectURL(file)+'#'+encodeURIComponent(file.name);L('file: '+file.name+' '+file.size+' bytes');
   window.EJS_pathtodata='https://cdn.emulatorjs.org/stable/data/';
   window.EJS_threads=true;window.EJS_startOnLoaded=true;
   const s=document.createElement('script');
   s.src='https://cdn.emulatorjs.org/stable/data/loader.js';
-  document.body.appendChild(s);
+  s.onload=()=>L('loader ready');s.onerror=()=>L('loader FAILED to load');document.body.appendChild(s);
 };
 </script></body></html>
